@@ -7,7 +7,6 @@ Globals:
     Runtime: python3.12
     Timeout: 60
     MemorySize: 256
-    Role: !GetAtt AppBedrockRole.Arn
 
 Resources:
 
@@ -46,6 +45,7 @@ Resources:
       FunctionName: weekly-meal-planner-meal-plan
       CodeUri: ../backend/personalized_meal_plan/
       Handler: run.sh
+      Role: !GetAtt AppBedrockRole.Arn
       Layers:
         - !Sub "arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerX86:27"
       Environment:
@@ -64,6 +64,7 @@ Resources:
       FunctionName: weekly-meal-planner-shopping-list
       CodeUri: ../backend/consolidated_shopping_list/
       Handler: run.sh
+      Role: !GetAtt AppBedrockRole.Arn
       Layers:
         - !Sub "arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerX86:27"
       Environment:
