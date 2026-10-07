@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly Meal Planner Assistant</title>
+  <style>
+    /* ── Reset & Base ──────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #f5f7fa;
+      --surface:     #ffffff;
+      --border:      #e2e8f0;
+      --accent:      #4f8ef7;
+      --accent-dark: #3a6fd8;
+      --text:        #1a202c;
+      --muted:       #718096;
+      --success:     #38a169;
+      --error:       #e53e3e;
+      --radius:      12px;
+      --shadow:      0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 60px;
+    }
+
+    /* ── Header ────────────────────────────────────────────────────────── */
+    .app-header {
+      background: linear-gradient(135deg, #4f8ef7 0%, #7b5ea7 100%);
+      color: #fff;
+      padding: 36px 24px 28px;
+      text-align: center;
+    }
+    .app-header h1 {
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .app-header p {
+      margin-top: 10px;
+      font-size: 1rem;
+      opacity: 0.9;
+      max-width: 640px;
+      margin-inline: auto;
+      line-height: 1.55;
+    }
+
+    /* ── Main container ────────────────────────────────────────────────── */
+    .container {
+      max-width: 960px;
+      margin: 32px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Card ──────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+    .card-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* ── Two-column input row ──────────────────────────────────────────── */
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 600px) {
+      .input-row { grid-template-columns: 1fr; }
+    }
+
+    /* ── Form controls ─────────────────────────────────────────────────── */
+    label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    textarea, select {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: var(--text);
+      background: #fafbfc;
+      transition: border-color 0.2s;
+      resize: vertical;
+    }
+    textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: #fff;
+    }
+    textarea { min-height: 90px; }
+
+    /* ── Slider ────────────────────────────────────────────────────────── */
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(79,142,247,0.4);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+    }
+    .slider-value {
+      min-width: 52px;
+      text-align: center;
+      background: #edf2ff;
+      border: 1.5px solid #c3d5ff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--accent-dark);
+    }
+
+    /* ── Run All button ────────────────────────────────────────────────── */
+    .run-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #4f8ef7, #7b5ea7);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.02em;
+    }
+    .run-btn:hover { opacity: 0.92; }
+    .run-btn:active { transform: scale(0.98); }
+    .run-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .run-btn svg { flex-shrink: 0; }
+
+    /* ── AI Output panel ───────────────────────────────────────────────── */
+    .output-card { position: relative; }
+    .output-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .output-label {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .ai-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: linear-gradient(135deg, #4f8ef7, #7b5ea7);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    .output-panel {
+      height: 340px;
+      overflow-y: auto;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fafbfc;
+      font-size: 0.93rem;
+      line-height: 1.65;
+      position: relative;
+    }
+
+    /* Custom scrollbar */
+    .output-panel::-webkit-scrollbar { width: 5px; }
+    .output-panel::-webkit-scrollbar-track { background: transparent; }
+    .output-panel::-webkit-scrollbar-thumb {
+      background: #c8d5e8;
+      border-radius: 3px;
+    }
+    .output-panel::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    /* Placeholder */
+    .output-placeholder {
+      color: var(--muted);
+      font-style: italic;
+      user-select: none;
+    }
+
+    /* Spinner */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error-msg {
+      color: var(--error);
+      background: #fff5f5;
+      border: 1px solid #ffd5d5;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+    }
+
+    /* ── Markdown rendering ────────────────────────────────────────────── */
+    .md-line {
+      display: block;
+      animation: fadein 0.18s ease both;
+    }
+    @keyframes fadein { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; } }
+
+    .md-h1 { font-size: 1.35rem; font-weight: 700; margin: 14px 0 6px; color: #2d3748; }
+    .md-h2 { font-size: 1.15rem; font-weight: 700; margin: 12px 0 5px; color: #2d3748; }
+    .md-h3 { font-size: 1rem;    font-weight: 700; margin: 10px 0 4px; color: #2d3748; }
+    .md-hr  { border: none; border-top: 1.5px solid var(--border); margin: 12px 0; }
+    .md-li  { padding-left: 18px; position: relative; margin: 2px 0; }
+    .md-li::before { content: "•"; position: absolute; left: 4px; color: var(--accent); }
+    .md-oli { padding-left: 24px; position: relative; margin: 2px 0; }
+    .md-p   { margin: 2px 0; }
+
+    code {
+      background: #edf2ff;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.88em;
+      color: #3a5abf;
+    }
+
+    /* Blinking cursor */
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: var(--accent);
+      vertical-align: text-bottom;
+      margin-left: 1px;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ── Footer ────────────────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Header / Welcome ══════════════════════════════════════════════════ -->
+<header class="app-header">
+  <h1>🥗 Weekly Meal Planner Assistant</h1>
+  <p>
+    Plan your meals for the week with ease! Enter your dietary preferences,
+    cuisine tastes, and planning details below. The assistant will generate a
+    personalized meal plan and a consolidated shopping list to make your week
+    stress-free.
+  </p>
+</header>
+
+<main class="container">
+
+  <!-- ══ Inputs ════════════════════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">Your Preferences</div>
+
+    <!-- Row 1: Dietary + Cuisine -->
+    <div class="input-row" style="margin-bottom:20px;">
+      <div>
+        <label for="dietary">Dietary Preferences &amp; Restrictions</label>
+        <textarea
+          id="dietary"
+          placeholder="e.g. vegetarian, gluten-free, nut allergy, dairy-free, low-carb..."
+          rows="3"
+        ></textarea>
+      </div>
+      <div>
+        <label for="cuisine">Cuisine Preferences</label>
+        <textarea
+          id="cuisine"
+          placeholder="e.g. Italian, Asian, Mexican, Mediterranean, American comfort food..."
+          rows="3"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- Row 2: Slider + Dropdown -->
+    <div class="input-row">
+      <div>
+        <label for="num-days">Number of Days</label>
+        <div class="slider-wrap">
+          <input
+            type="range"
+            id="num-days"
+            min="0"
+            max="100"
+            value="7"
+            step="1"
+            oninput="document.getElementById('days-val').textContent = this.value"
+          />
+          <span class="slider-value" id="days-val">7</span>
+        </div>
+      </div>
+      <div>
+        <label for="meal-types">Meal Types</label>
+        <select id="meal-types" title="Select which meals to plan">
+          <option>Breakfast only</option>
+          <option>Lunch only</option>
+          <option>Dinner only</option>
+          <option selected>All meals</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Run All button ════════════════════════════════════════════════ -->
+  <button class="run-btn" id="run-btn" onclick="runAll()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+    </svg>
+    Run All
+  </button>
+
+  <!-- ══ Widget 6: Personalized Meal Plan ══════════════════════════════ -->
+  <div class="card output-card">
+    <div class="output-header">
+      <span class="output-label">✨ Personalized Meal Plan</span>
+      <span class="ai-badge">AI</span>
+    </div>
+    <div class="output-panel" id="panel-meal-plan">
+      <span class="output-placeholder">Your personalized meal plan will appear here after clicking Run All.</span>
+    </div>
+  </div>
+
+  <!-- ══ Widget 7: Consolidated Shopping List ══════════════════════════ -->
+  <div class="card output-card">
+    <div class="output-header">
+      <span class="output-label">🛒 Consolidated Shopping List</span>
+      <span class="ai-badge">AI</span>
+    </div>
+    <div class="output-panel" id="panel-shopping-list">
+      <span class="output-placeholder">Your shopping list will appear here after the meal plan is generated.</span>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <p>Powered by Amazon Bedrock · Claude Haiku 4.5</p>
+</footer>
+
+<script>
+  // ── Streaming Lambda Function URLs (injected by GitHub Actions) ──────
+  const STREAM_URLS = {
+    personalized_meal_plan:    '__URL_PERSONALIZED_MEAL_PLAN__',
+    consolidated_shopping_list: '__URL_CONSOLIDATED_SHOPPING_LIST__',
+  };
+
+  // ── Accumulated text per panel (used to chain meal-plan → shopping) ──
+  const accumulated = {
+    personalized_meal_plan: '',
+    consolidated_shopping_list: '',
+  };
+
+  // ── Markdown line renderer ───────────────────────────────────────────
+  function renderMdLine(raw) {
+    const line = raw;
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      const hr = document.createElement('hr');
+      hr.className = 'md-hr md-line';
+      return hr;
+    }
+
+    const el = document.createElement('span');
+    el.className = 'md-line';
+
+    let text = line;
+    let cls = 'md-p';
+
+    if (/^### /.test(line))      { text = line.slice(4);  cls = 'md-h3'; }
+    else if (/^## /.test(line))  { text = line.slice(3);  cls = 'md-h2'; }
+    else if (/^# /.test(line))   { text = line.slice(2);  cls = 'md-h1'; }
+    else if (/^\d+\. /.test(line)) {
+      text = line.replace(/^\d+\. /, ''); cls = 'md-oli';
+    }
+    else if (/^[-*] /.test(line)) { text = line.slice(2); cls = 'md-li'; }
+
+    el.classList.add(cls);
+
+    // Inline: bold, italic, code
+    text = text
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g,     '<em>$1</em>');
+
+    el.innerHTML = text;
+    return el;
+  }
+
+  // ── Core streaming function ─────────────────────────────────────────
+  async function streamToPanel(panelId, accKey, body) {
+    const panel = document.getElementById(panelId);
+
+    // Show spinner
+    panel.innerHTML = '';
+    const spinWrap = document.createElement('div');
+    spinWrap.className = 'spinner-wrap';
+    spinWrap.innerHTML = '<div class="spinner"></div><span>Generating…</span>';
+    panel.appendChild(spinWrap);
+
+    accumulated[accKey] = '';
+
+    try {
+      const res = await fetch(STREAM_URLS[accKey], {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+      }
+
+      // Clear spinner on first real data
+      let cleared = false;
+      let lineBuffer = '';
+      let cursor = null;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulated[accKey] += chunk;
+        lineBuffer += chunk;
+
+        // Remove cursor before appending new content
+        if (cursor) { cursor.remove(); cursor = null; }
+
+        // Clear spinner on first chunk
+        if (!cleared) {
+          panel.innerHTML = '';
+          cleared = true;
+        }
+
+        // Flush complete lines
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop(); // keep incomplete tail
+
+        for (const line of lines) {
+          if (line === '') {
+            // Empty line — spacer
+            const br = document.createElement('br');
+            panel.appendChild(br);
+          } else {
+            panel.appendChild(renderMdLine(line));
+          }
+        }
+
+        // Re-attach blinking cursor to indicate streaming is live
+        cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        panel.appendChild(cursor);
+
+        // Auto-scroll
+        panel.scrollTop = panel.scrollHeight;
+      }
+
+      // Flush remaining buffer
+      if (cursor) { cursor.remove(); cursor = null; }
+      if (lineBuffer.trim()) {
+        panel.appendChild(renderMdLine(lineBuffer));
+      }
+
+      panel.scrollTop = panel.scrollHeight;
+
+    } catch (err) {
+      panel.innerHTML = '';
+      const errEl = document.createElement('div');
+      errEl.className = 'error-msg';
+      errEl.textContent = `Error: ${err.message}`;
+      panel.appendChild(errEl);
+      throw err; // re-throw so runAll can handle sequencing
+    }
+  }
+
+  // ── Run All ─────────────────────────────────────────────────────────
+  async function runAll() {
+    const btn = document.getElementById('run-btn');
+    btn.disabled = true;
+    btn.textContent = 'Running…';
+
+    const dietary   = document.getElementById('dietary').value.trim();
+    const cuisine   = document.getElementById('cuisine').value.trim();
+    const numDays   = parseInt(document.getElementById('num-days').value, 10);
+    const mealTypes = document.getElementById('meal-types').value;
+
+    try {
+      // Step 1: Generate meal plan (must complete first)
+      await streamToPanel('panel-meal-plan', 'personalized_meal_plan', {
+        dietary_preferences: dietary,
+        cuisine_preferences: cuisine,
+        number_of_days: numDays,
+        meal_types: mealTypes,
+      });
+
+      // Step 2: Feed meal plan text into shopping list
+      await streamToPanel('panel-shopping-list', 'consolidated_shopping_list', {
+        meal_plan: accumulated.personalized_meal_plan,
+      });
+
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        Run All`;
+    }
+  }
+</script>
+</body>
+</html>

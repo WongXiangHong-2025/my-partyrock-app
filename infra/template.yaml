@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Weekly Meal Planner Assistant — Lambda + Bedrock + S3
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 60
+    MemorySize: 256
+    Role: !GetAtt AppBedrockRole.Arn
+
+Resources:
+
+  # ── IAM Role ──────────────────────────────────────────────────────────────
+  AppBedrockRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: weekly-meal-planner-lambda-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BedrockInvokePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0"
+                  - !Sub "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+                  - "arn:aws:bedrock:::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
+
+  # ── Lambda: Personalized Meal Plan ────────────────────────────────────────
+  PersonalizedMealPlanFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: weekly-meal-planner-meal-plan
+      CodeUri: ../backend/personalized_meal_plan/
+      Handler: run.sh
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerX86:27"
+      Environment:
+        Variables:
+          AWS_LAMBDA_EXEC_WRAPPER: /opt/bootstrap
+          AWS_LWA_INVOKE_MODE: response_stream
+          PORT: "8080"
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
+
+  # ── Lambda: Consolidated Shopping List ────────────────────────────────────
+  ConsolidatedShoppingListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: weekly-meal-planner-shopping-list
+      CodeUri: ../backend/consolidated_shopping_list/
+      Handler: run.sh
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:753240598075:layer:LambdaAdapterLayerX86:27"
+      Environment:
+        Variables:
+          AWS_LAMBDA_EXEC_WRAPPER: /opt/bootstrap
+          AWS_LWA_INVOKE_MODE: response_stream
+          PORT: "8080"
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: RESPONSE_STREAM
+
+  # ── S3 Frontend Bucket ────────────────────────────────────────────────────
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "weekly-meal-planner-frontend-${AWS::AccountId}"
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+
+# ── Outputs ─────────────────────────────────────────────────────────────────
+Outputs:
+  PersonalizedMealPlanUrl:
+    Description: Function URL for Personalized Meal Plan Lambda
+    Value: !GetAtt PersonalizedMealPlanFunctionUrl.FunctionUrl
+
+  ConsolidatedShoppingListUrl:
+    Description: Function URL for Consolidated Shopping List Lambda
+    Value: !GetAtt ConsolidatedShoppingListFunctionUrl.FunctionUrl
+
+  WebsiteUrl:
+    Description: S3 static website URL
+    Value: !GetAtt FrontendBucket.WebsiteURL
+
+  BucketName:
+    Description: Frontend S3 bucket name
+    Value: !Ref FrontendBucket
